@@ -171,9 +171,14 @@ class hand:
 
    
         
-    def printHand(self):
-        for i in range(len(self.cards)):
-            print(self.cards[i].print())
+    def scoresToTextList(self):
+        if len(self.get_score()) > 0:   
+            out = str(self.get_score()[0])
+        else:
+            return str(self.getBust_score())
+        for i in range(1, len(self.get_score())):
+            out += ", " + str(self.get_score()[i])
+        return out
 
 class player:
     def __init__(self):
@@ -267,7 +272,7 @@ def drawCards_ds():
 def updateScores_dh():
     p_score = playerHand.get_score()
     d_score = dealerHand.get_dScore()
-    p_scoretxt = my_font.render("Player: " + str(p_score[0]),False, 'Black')
+    p_scoretxt = my_font.render("Player: " + playerHand.scoresToTextList(),False, 'Black')
     d_scoretxt = my_font.render("Dealer: " + str(d_score[0]),False, 'Black')
     screen.blit(p_scoretxt,(200, 450))
     screen.blit(d_scoretxt,(460, 120))
@@ -276,8 +281,8 @@ def updateScores_dh():
 def updateScores_ds():
     p_score = playerHand.get_score()
     d_score = dealerHand.get_score()
-    p_scoretxt = my_font.render("Player: " + str(p_score[0]),False, 'Black')
-    d_scoretxt = my_font.render("Dealer: " + str(d_score[0]),False, 'Black')
+    p_scoretxt = my_font.render("Player: " + playerHand.scoresToTextList(),False, 'Black')
+    d_scoretxt = my_font.render("Dealer: " + dealerHand.scoresToTextList(),False, 'Black')
     screen.blit(p_scoretxt,(200, 450))
     screen.blit(d_scoretxt,(460, 120))
     pygame.display.flip()

@@ -8,6 +8,7 @@ class card :
         self.suit = suit
         if value==0:
             self.value = "Ace"
+            self.b_val = 1
             self.imgF = "./cards/A" + self.suit + ".png"
         elif value==1:
             self.value = "Two"
@@ -110,40 +111,101 @@ class hand:
         self.cards = []
         for i in range(2):
             self.cards.append(drawpile.draw())
+    #returns possible score for all cards in hand
     def get_score(self):
-        out = [0]
+        vals = [0]
+        #gen all possible scores
         for i in self.cards:
             if i.value != "Ace":
-                for j in range(len(out)):
-                    out[j] += i.b_val
+                for j in range(len(vals)):
+                    vals[j] += i.b_val
+
             else:
-                for j in range(len(out)):
-                    out.append(out[j] + 11)
-                    out[j] += 1
+                for j in range(len(vals)):
+                    vals.append(vals[j] + 11)
+                    vals[j] += 1
+        #elim busts if result is empty list then hand is a bust
+        out = []
+        for i in range(len(vals)):
+            if vals[i] <= 21:
+                out.append(vals[i])
+
+        return out
+    #returns possible dealer score for shown card only (score of first card in hand)
+    def get_dScore(self):
+        out = [0]
+        if self.cards[0].value != "Ace":
+            out[0] = self.cards[0].b_val
+        else:
+            out[0] = 1
+            out.append(11)
         return out
     def hitHand(self, drawpile):
         self.cards.append(drawpile.draw())
+    def getMaxScore(self, list):
+        if(len(list) > 1):
+            best = list[0]
+            for i in range(1, len(list)):
+                if(list[i] > best):
+                    best = list[i]
+            return best
+        else:
+            return list
+        
+    def getBust_score(self):
+        out = 0
+        for i in self.cards:
+            out += i.b_val
+        return out
+        
+    def dealerStop(self):
+        init = self.get_score()
+        if init == []:
+            return -1
+        out = []
+        for i in range(len(init)):
+            if init[i] > 16:
+                out.append(init)
+        
+        return self.getMaxScore(out)
+
+   
+        
     def printHand(self):
         for i in range(len(self.cards)):
             print(self.cards[i].print())
 
+class player:
+    def __init__(self):
+        self.money = 1000
+        self.wins = 0
+        self.losses = 0
+        self.blackjacks = 0
+
+#game assets_____________________________________
 pygame.font.init()
 screen = pygame.display.set_mode((1280, 720))
 my_font = pygame.font.SysFont(None, 32)
+announcement = pygame.font.SysFont(None, 72)
+
+cardBackI = pygame.image.load('./cards/B.png')
+cardBackI = pygame.transform.scale(cardBackI, (100,150))
+#game vars_________________________________
+running = True
+dealt = False
 gameDeck = None
 playerHand = None
 dealerHand = None
-
+dealerRound = 0
+playerRound = 0
+playerTurn = True
 
 ##__________________SCREEN SETUP____________________________________
-def drawScreen():
+def drawScreen(player):
     pygame.draw.rect(screen, 'brown', (0,600,1280,180))
     pygame.draw.rect(screen, 'dark green', (20,20,1240,560))
-    for i in range(2):
-        pygame.draw.rect(screen, 'black', ((i)*125 + 400, 400, 100, 150), 5 )
-    for i in range(2):
-        pygame.draw.rect(screen, 'black', ((i)*125 + 600, 50, 100, 150), 5 )
 
+    #Buttons___________________________________________
     pygame.draw.rect(screen,"blue", (1120,620,120,80))
     btnLbl = my_font.render("DEAL",False, 'Black')
     screen.blit(btnLbl,(1150, 650))
@@ -152,55 +214,214 @@ def drawScreen():
     btnLbl = my_font.render("HIT ME",False, 'Black')
     screen.blit(btnLbl,(80, 650))
 
-def drawCards():
+    pygame.draw.rect(screen,"yellow", (200,620,120,80))
+    btnLbl = my_font.render("STAND",False, 'Black')
+    screen.blit(btnLbl,(220, 650))
+
+    #stats/info________________________________________
+    relx = 50
+    rely = 50
+    pygame.draw.rect(screen,"white", (relx, rely,200,80))
+    wlLbl = my_font.render("W/L: " + str(player.wins) + "/" + str(player.losses), False, 'Black')
+    screen.blit(wlLbl,(relx+20, rely+10))
+    moneyLbl = my_font.render("Money: $" + str(player.money) ,False, 'Black')
+    screen.blit(moneyLbl,(relx+20, rely+40))
+
+    
+    for i in range(2):
+        pygame.draw.rect(screen, 'black', ((i)*125 + 400, 400, 100, 150), 5 )
+    for i in range(2):
+        pygame.draw.rect(screen, 'black', ((i)*125 + 600, 50, 100, 150), 5 )
+    pygame.display.flip()
+
+
+def drawCards_dh():
+    #player cards
+    print("drawing cards")
     for i in range(len(playerHand.cards)):
         img = pygame.image.load(playerHand.cards[i].imgF)
         img = pygame.transform.scale(img, (100,150))
         screen.blit(img, (i*125 +400,400))
+    #dealer card one shown one hidden
+    img = pygame.image.load(dealerHand.cards[0].imgF)
+    img = pygame.transform.scale(img, (100,150))
+    img = pygame.transform.rotate(img, 180)
+    screen.blit(img, (600,50))
+    screen.blit(cardBackI, (725,50))
+    pygame.display.flip()
+
+def drawCards_ds():
+    #player cards
+    for i in range(len(playerHand.cards)):
+        img = pygame.image.load(playerHand.cards[i].imgF)
+        img = pygame.transform.scale(img, (100,150))
+        screen.blit(img, (i*125 +400,400))
+    #player cards
     for i in range(len(dealerHand.cards)):
         img = pygame.image.load(dealerHand.cards[i].imgF)
         img = pygame.transform.scale(img, (100,150))
         img = pygame.transform.rotate(img, 180)
         screen.blit(img, (i*125 +600,50))
+    pygame.display.flip()
 
-def updateScores():
+def updateScores_dh():
+    p_score = playerHand.get_score()
+    d_score = dealerHand.get_dScore()
+    p_scoretxt = my_font.render("Player: " + str(p_score[0]),False, 'Black')
+    d_scoretxt = my_font.render("Dealer: " + str(d_score[0]),False, 'Black')
+    screen.blit(p_scoretxt,(200, 450))
+    screen.blit(d_scoretxt,(460, 120))
+    pygame.display.flip()
+
+def updateScores_ds():
     p_score = playerHand.get_score()
     d_score = dealerHand.get_score()
-    p_scoretxt = my_font.render("Player: " + str(p_score),False, 'Black')
-    d_scoretxt = my_font.render("Dealer: " + str(d_score),False, 'Black')
+    p_scoretxt = my_font.render("Player: " + str(p_score[0]),False, 'Black')
+    d_scoretxt = my_font.render("Dealer: " + str(d_score[0]),False, 'Black')
     screen.blit(p_scoretxt,(200, 450))
-    screen.blit(d_scoretxt,(860, 120))
-drawScreen()
+    screen.blit(d_scoretxt,(460, 120))
+    pygame.display.flip()
+def roundWon(player):
+    pygame.draw.rect(screen, "dark green", (200,250,1000,150))
+    wintxt = announcement.render("PLAYER WINS ROUND",False, 'Black')
+    screen.blit(wintxt,(375, 275))
+    pygame.display.flip()
+    pygame.time.delay(2000)
+    player.wins+=1
 
-##game vars
-running = True
-dealt = False
+def roundLost(player):
+    pygame.draw.rect(screen, "dark green", (200,250,1000,150))
+    wintxt = announcement.render("DEALER WINS ROUND",False, 'Black')
+    screen.blit(wintxt,(375, 275))
+    pygame.display.flip()
+    pygame.time.delay(2000)
+    player.losses += 1
+
+def pBlackjack():
+    pygame.draw.rect(screen, "dark green", (200,250,1000,150))
+    wintxt = announcement.render("PLAYER BLACKJACK",False, 'Black')
+    screen.blit(wintxt, (375, 275))
+    pygame.display.flip()
+    pygame.time.delay(2000)
+
+def dBlackjack():
+    pygame.draw.rect(screen, "dark green", (200,250,1000,150))
+    wintxt = announcement.render("DEALER BLACKJACK",False, 'Black')
+    screen.blit(wintxt, (375, 275))
+    pygame.display.flip()
+    pygame.time.delay(2000)
+
+def push():
+    pygame.draw.rect(screen, "dark green", (200,250,1000,150))
+    wintxt = announcement.render("PUSH",False, 'Black')
+    screen.blit(wintxt, (375, 275))
+    pygame.display.flip()
+    pygame.time.delay(2000)
+
+def pBust():
+    pygame.draw.rect(screen, "dark green", (200,250,1000,150))
+    wintxt = announcement.render("PLAYER BUSTS",False, 'Black')
+    screen.blit(wintxt, (375, 275))
+    pygame.display.flip()
+    pygame.time.delay(2000)
+
+def dBust():
+    pygame.draw.rect(screen, "dark green", (200,250,1000,150))
+    wintxt = announcement.render("DEALER BUSTS",False, 'Black')
+    screen.blit(wintxt, (375, 275))
+    pygame.display.flip()
+    pygame.time.delay(2000)
+
+def endstate(player):
+    if playerRound == 21 and len(playerHand.cards) == 2:
+        pBlackjack()
+    if dealerRound == 21 and len(dealerHand.cards) == 2:
+        dBlackjack()
+    if playerRound == dealerRound:
+        push()
+    elif dealerRound == -1:
+        dBust()
+        roundWon(player)
+    elif playerRound > dealerRound:
+        roundWon(player)
+    elif playerRound < dealerRound:
+        roundLost(player)
 
 
 
+
+#____________________________MAIN GAME LOOP_________________________________
+p = player()
+drawScreen(p)
+gameDeck = drawPile(4)
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         if event.type == pygame.MOUSEBUTTONUP:
             c_pos = pygame.mouse.get_pos()
-##____________________BUTTON FUNCTIONALITY________________________________
-            ##Deal Button
-            if c_pos[0] >= 1120 and c_pos[1] <= 700 and c_pos[1] >= 620 and c_pos[0] <= 1240:
+            #____________________BUTTON FUNCTIONALITY________________________________
+            #Deal Button
+            if c_pos[0] >= 1120 and c_pos[1] <= 700 and c_pos[1] >= 620 and c_pos[0] <= 1240 and not dealt:
+                print("deal_btn")
                 dealt = True
-                gameDeck = drawPile(4)
+                playerTurn = True
                 playerHand = hand(gameDeck)
                 dealerHand = hand(gameDeck)
-                drawScreen()
-                drawCards()
-                updateScores()
-            ##Hit button
-            if c_pos[0] >= 60 and c_pos[1] <= 700 and c_pos[1] >= 620 and c_pos[0] <= 180 and dealt and len(playerHand.cards) < 7:
+                drawScreen(p)
+                drawCards_dh()
+                updateScores_dh()
+            #Hit button
+            if c_pos[0] >= 60 and c_pos[1] <= 700 and c_pos[1] >= 620 and c_pos[0] <= 180 and dealt and len(playerHand.cards) < 7 and playerTurn:
                 playerHand.hitHand(gameDeck)
-                drawScreen()
-                drawCards()
-                updateScores()
-    pygame.display.flip()
+                drawCards_dh()
+                pygame.display.flip()
+                if playerHand.get_score() == []:
+                    b_score = playerHand.getBust_score()
+                    b_scoretxt = my_font.render("Player: " + str(b_score),False, 'Black')
+                    pygame.draw.rect(screen, "dark green", (180,420,210,100))
+                    screen.blit(b_scoretxt,(200, 450))
+                    pygame.display.flip()
+                    pBust()
+                    roundLost(p)
+                    dealt = False
+                    drawScreen(p)
+                else:
+                    drawScreen(p)
+                    drawCards_dh()
+                    updateScores_dh()
+            #Stand button
+            if c_pos[0] >= 200 and c_pos[1] <= 700 and c_pos[1] >= 620 and c_pos[0] <= 320 and dealt and playerTurn:
+                drawScreen(p)
+                drawCards_ds()
+                updateScores_ds()
+                pygame.display.flip()
+                pygame.time.delay(1000)
+                playerRound = playerHand.get_score()[len(playerHand.get_score())-1]
+                playerTurn = False
+                dealerPlaying = True
+                while dealerPlaying:
+                    if dealerHand.dealerStop() == -1:
+                        dealerRound = -1
+                        dealerPlaying = False
+                    elif dealerHand.dealerStop() == []:
+                        dealerHand.hitHand(gameDeck)
+                        drawScreen(p)
+                        drawCards_ds()
+                        updateScores_ds()
+                        pygame.display.flip()
+                        pygame.time.delay(1000)
+                    else:
+                        toInt = dealerHand.dealerStop()
+                        while type(toInt) != int:
+                            toInt = toInt[len(toInt) -1]
+                        dealerRound = toInt
+                        dealerPlaying = False
+                endstate(p)
+                dealt = False
+                drawScreen(p)
+                
+                
 pygame.quit()
 
 
